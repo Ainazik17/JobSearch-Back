@@ -1,0 +1,118 @@
+spring:
+  application:
+    name: work-kg-backend
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 110MB
+  datasource:
+    url: сpostgres-ocni.railway.internal:5432/railway
+    username: postgres
+    password: anMlAeHYKVPiHUyKasXASQfBCtWSslDJ
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      max-lifetime: 600000        # уменьшить до 10 минут
+      idle-timeout: 300000        # уменьшить до 5 минут
+      keepalive-time: 60000       # пинговать каждую минуту — добавить это
+      validation-timeout: 5000
+      connection-test-query: SELECT 1
+      auto-commit: true
+      pool-name: WorkKG-HikariPool
+      register-mbeans: true
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 250
+        prepStmtCacheSqlLimit: 2048
+
+  jpa:
+    hibernate:
+      JDBC:
+        time_zone: Asia/Bishkek
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: 20
+          fetch_size: 50
+          order_inserts: true
+          order_updates: true
+          batch_versioned_data: true
+          cache:
+            use_second_level_cache: false
+            use_query_cache: false
+
+            # Статистика (выключить в продакшене)
+            generate_statistics: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:migration
+
+  jackson:
+    time-zone: Asia/Bishkek
+    date-format: yyyy-MM-dd'T'HH:mm:ss
+
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 200          # Максимум потоков
+      min-spare: 10     # Минимум свободных потоков
+    max-connections: 10000  # Максимум TCP соединений
+    accept-count: 100       # Очередь запросов
+    connection-timeout: 20000
+
+jwt:
+  secret: your-256-bit-secret-key-change-this-in-production
+  expiration: 86400000 # 24 hours
+  refresh-expiration: 604800000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+telegram:
+  bot:
+    token: 7984796500:AAEAwgmhyoKVGfdFlF5thAMVhHbpmR1FMKA
+
+claude:
+  api-key: ${CLAUDE_API_KEY:}
+  model: ${CLAUDE_MODEL:claude-haiku-4-5-20251001}
+
+finik-withdraw:
+  api-key: iFKEAzkc8f5wPrSVmnL6U60hYrhuqxBK8tZDS8jv
+  account-id: 0090ec57-8f81-4d76-abc1-83dc08d076a5
+  user-id: f69d4dce-8c75-4536-a4a5-19d845a5b1a1
+  private-key-path: classpath:private_key.pem
+  public-key-path: classpath:finik-public-key.pem
+  base-url: https://api.paymentsgateway.averspay.kg
+finik:
+  api-key: LOlnU70w7LtRpBZ5HAxLaVatjIXQLGS9xmeSmWM4
+  account-id: d54479fa-bea8-4762-ba96-6ec8b1eaea26
+  private-key-path: classpath:workkg.pem
+  base-url: https://api.acquiring.averspay.kg
+  webhook-url: ${APP_BASE_URL}/api/bot/payments/finik
+
+minio:
+  url: ${AWS_ENDPOINT_URL}
+  access-key: ${AWS_ACCESS_KEY_ID}
+  secret-key: ${AWS_SECRET_ACCESS_KEY}
+  bucket: ${AWS_S3_BUCKET_NAME}
+  region: ${AWS_DEFAULT_REGION}
+
+logging:
+  level:
+    kg.workkg: DEBUG
