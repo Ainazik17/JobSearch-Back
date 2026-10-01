@@ -1,6 +1,7 @@
 package job.search.kg.payment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -24,6 +25,15 @@ import java.util.stream.Collectors;
 public class FinikSignatureUtil {
     private final ResourceLoader resourceLoader;
     private final ObjectMapper objectMapper;
+
+    /**
+     * JSON с ключами по алфавиту — Payments Gateway проверяет подпись по такому телу.
+     * Эту же строку нужно и подписывать, и отправлять.
+     */
+    public String toSortedJson(Object body) throws Exception {
+        ObjectMapper sorted = objectMapper.copy().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+        return sorted.writeValueAsString(objectMapper.convertValue(body, Object.class));
+    }
 
     public String generateSignature(
             String httpMethod,
@@ -75,7 +85,8 @@ public class FinikSignatureUtil {
 
         // 5. Body (JSON)
         if (body != null) {
-            String jsonBody = objectMapper.writeValueAsString(body);
+            // Готовую JSON-строку берём как есть, чтобы подпись совпала с отправляемым телом
+            String jsonBody = body instanceof String str ? str : objectMapper.writeValueAsString(body);
             canonical.append(jsonBody);
             log.debug("Step 5 - Body: {}", jsonBody);
         } else {
@@ -131,8 +142,11 @@ public class FinikSignatureUtil {
     private PrivateKey loadPrivateKey(String path) throws Exception {
         String privateKeyPEM;
 
-        // Сначала пробуем взять из environment variable
-        String privateKeyFromEnv = System.getenv("FINIK_PRIVATE_KEY_CONTENT");
+        // Сначала пробуем взять из environment variable.
+        // Для ключа вывода (Payments Gateway) отдельная env var, чтобы не подписывать выводы ключом QR-эквайринга
+        boolean isAcquiringKey = path != null && path.contains("workkg");
+        String envVar = isAcquiringKey ? "FINIK_PRIVATE_KEY_CONTENT" : "FINIK_WITHDRAW_PRIVATE_KEY_CONTENT";
+        String privateKeyFromEnv = System.getenv(envVar);
 
         if (privateKeyFromEnv != null && !privateKeyFromEnv.isEmpty()) {
             privateKeyPEM = privateKeyFromEnv;

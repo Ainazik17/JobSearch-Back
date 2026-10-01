@@ -75,13 +75,15 @@ public class BankWithdrawalService {
         headers.put("x-api-key", config.getApiKey());
         headers.put("x-api-timestamp", timestamp);
 
+        String jsonBody = signatureUtil.toSortedJson(request);
+
         // Генерация подписи
         String signature = signatureUtil.generateSignature(
                 "POST",
                 "/v2/recipient",
                 headers,
                 null,
-                request,
+                jsonBody,
                 config.getPrivateKeyPath()
         );
 
@@ -95,7 +97,6 @@ public class BankWithdrawalService {
         httpHeaders.set("x-api-timestamp", timestamp);
         httpHeaders.set("signature", signature);
 
-        String jsonBody = objectMapper.writeValueAsString(request);
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, httpHeaders);
 
         log.info("Request body: {}", jsonBody);
@@ -223,13 +224,15 @@ public class BankWithdrawalService {
         headers.put("x-api-key", config.getApiKey());
         headers.put("x-api-timestamp", timestamp);
 
+        String jsonBody = signatureUtil.toSortedJson(request);
+
         // Генерация подписи
         String signature = signatureUtil.generateSignature(
                 "POST",
                 "/v2/payment",
                 headers,
                 null,
-                request,
+                jsonBody,
                 config.getPrivateKeyPath()
         );
 
@@ -240,7 +243,6 @@ public class BankWithdrawalService {
         httpHeaders.set("x-api-timestamp", timestamp);
         httpHeaders.set("signature", signature);
 
-        String jsonBody = objectMapper.writeValueAsString(request);
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, httpHeaders);
 
         log.info("Payment request body: {}", jsonBody);

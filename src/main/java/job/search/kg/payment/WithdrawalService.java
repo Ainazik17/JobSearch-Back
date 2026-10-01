@@ -242,18 +242,6 @@ public class WithdrawalService {
                     recipientCheck.getErrorMessage());
         }
 
-        String transactionType = null;
-        if (bank.isRequiresTransactionType()) {
-            transactionType = recipientCheck.getTransactionType();
-            log.info("MBank transactionType received: {}", transactionType);
-
-            if (transactionType == null) {
-                throw new RuntimeException(
-                        "MBank requires transactionType but it was not returned from checkRecipient"
-                );
-            }
-        }
-
         log.info("Recipient validated for {}: phone={}, name={}",
                 bank.getName(), formattedPhone, recipientCheck.getName());
 
