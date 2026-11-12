@@ -55,6 +55,19 @@ public class User {
     @Column(name = "is_banned", nullable = false)
     private Boolean isBanned = false;
 
+    // Настройки уведомлений (Профиль → Уведомления)
+    @Column(name = "notify_vacancies", nullable = false)
+    private Boolean notifyVacancies = true;
+
+    @Column(name = "notify_resumes", nullable = false)
+    private Boolean notifyResumes = true;
+
+    @Column(name = "notify_gigs", nullable = false)
+    private Boolean notifyGigs = true;
+
+    @Column(name = "notify_companies", nullable = false)
+    private Boolean notifyCompanies = true;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

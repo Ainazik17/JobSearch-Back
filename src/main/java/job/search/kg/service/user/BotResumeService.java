@@ -1,6 +1,9 @@
 package job.search.kg.service.user;
 
+import job.search.kg.entity.ResumeWorkPlace;
+
 import job.search.kg.controller.user.BotVacancyController;
+import job.search.kg.util.AfterCommit;
 import job.search.kg.dto.request.user.CreateResumeRequest;
 import job.search.kg.dto.response.MediaResponse;
 import job.search.kg.dto.response.user.ResumeResponse;
@@ -32,6 +35,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class BotResumeService {
+
+    private final job.search.kg.repo.ResumeWorkPlaceRepository workPlaceRepository;
 
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
@@ -100,7 +105,10 @@ public class BotResumeService {
         resume.setPhone(request.getPhone());
 
         resume = resumeRepository.save(resume);
-        resumeNotificationService.notifyEmployersAboutNewResume(resume);
+        saveWorkPlaces(resume, request.getWorkPlaces());
+        // Рассылка после коммита: асинхронный поток должен увидеть резюме в базе
+        Long newResumeId = resume.getId();
+        AfterCommit.run(() -> resumeNotificationService.notifyEmployersAboutNewResume(newResumeId));
         return resume;
     }
 
@@ -204,8 +212,32 @@ public class BotResumeService {
             resume.setPhone(request.getPhone());
         }
 
-
+        saveWorkPlaces(resume, request.getWorkPlaces());
         return resumeRepository.save(resume);
+    }
+
+    /** «Где работали»: null — оставить как есть, иначе заменить список целиком */
+    private void saveWorkPlaces(Resume resume, List<job.search.kg.dto.request.user.WorkPlaceDto> places) {
+        if (places == null) return;
+        workPlaceRepository.deleteByResumeId(resume.getId());
+        int order = 0;
+        for (var p : places) {
+            if (p == null || p.getPlace() == null || p.getPlace().isBlank()) continue;
+            ResumeWorkPlace w = new ResumeWorkPlace();
+            w.setResume(resume);
+            w.setPlace(p.getPlace().trim());
+            w.setRole(p.getRole() == null || p.getRole().isBlank() ? null : p.getRole().trim());
+            w.setPeriodText(p.getPeriod() == null || p.getPeriod().isBlank() ? null : p.getPeriod().trim());
+            w.setDisplayOrder(order++);
+            workPlaceRepository.save(w);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<job.search.kg.dto.request.user.WorkPlaceDto> getWorkPlaces(Long resumeId) {
+        return workPlaceRepository.findByResumeIdOrderByDisplayOrderAscIdAsc(resumeId).stream()
+                .map(w -> new job.search.kg.dto.request.user.WorkPlaceDto(w.getPlace(), w.getRole(), w.getPeriodText()))
+                .toList();
     }
 
     @Async("mediaUploadExecutor")

@@ -51,6 +51,7 @@ public class PointsTransaction {
         SUBSCRIPTION,
         REFUND,
         WITHDRAWAL,
-        BOOST
+        BOOST,
+        DEAL        // подтверждённая работа (Сделки)
     }
 }

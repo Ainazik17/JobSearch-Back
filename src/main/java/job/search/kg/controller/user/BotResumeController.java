@@ -41,7 +41,7 @@ public class BotResumeController {
     @PostMapping
     public ResponseEntity<Resume> createResume(
             @RequestParam Long telegramId,
-            @RequestBody CreateResumeRequest request) {
+            @jakarta.validation.Valid @RequestBody CreateResumeRequest request) {
         Resume resume = botResumeService.createResume(telegramId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(resume);
     }
@@ -73,6 +73,12 @@ public class BotResumeController {
     public ResponseEntity<ResumeStatsResponse> getUserResumeStats(@PathVariable Long telegramId) {
         ResumeStatsResponse stats = botResumeService.getUserResumeStats(telegramId);
         return ResponseEntity.ok(stats);
+    }
+
+    /** «Где работали» — публично, как и само резюме */
+    @GetMapping("/{resumeId}/work-places")
+    public List<job.search.kg.dto.request.user.WorkPlaceDto> getWorkPlaces(@PathVariable Long resumeId) {
+        return resumeService.getWorkPlaces(resumeId);
     }
 
     @GetMapping("/{resumeId}/{telegramId}")

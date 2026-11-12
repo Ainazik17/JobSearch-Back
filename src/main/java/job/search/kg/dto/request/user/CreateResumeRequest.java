@@ -15,4 +15,7 @@ public class CreateResumeRequest {
     private String description;
     private Boolean isActive = true;
     private String phone;
+    /** «Где работали»: null — не менять, [] — очистить. До 5 записей. */
+    @jakarta.validation.constraints.Size(max = 5, message = "Можно указать до 5 мест работы")
+    private java.util.List<@jakarta.validation.Valid WorkPlaceDto> workPlaces;
 }

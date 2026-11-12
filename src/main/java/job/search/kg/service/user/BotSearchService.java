@@ -727,8 +727,10 @@ public class BotSearchService {
         response.setSphereId(vacancy.getCategory().getSphere().getId());
         response.setCategoryId(vacancy.getCategory().getId());
         response.setSubcategoryId(vacancy.getSubcategory().getId());
-        response.setTelegramUsername(vacancy.getUser().getUsername());
+        // username — только когда контакты открыты (см. проверку телефона выше); раньше перезаписывался всегда
         response.setFree(isFree);
+        response.setVoiceUrl(vacancy.getVoiceUrl() == null ? null : minioStorageService.resolveUrl(vacancy.getVoiceUrl()));
+        response.setVoiceDuration(vacancy.getVoiceUrl() == null ? null : vacancy.getVoiceDuration());
         response.setBoosted(isBoosted);
 
 

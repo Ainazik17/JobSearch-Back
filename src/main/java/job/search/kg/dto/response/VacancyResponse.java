@@ -45,4 +45,7 @@ public class VacancyResponse {
     private Double longitude;
     private boolean isFree;
     private boolean isBoosted;
+    /** Голосовое (presigned-ссылка) и длительность, сек */
+    private String voiceUrl;
+    private Integer voiceDuration;
 }

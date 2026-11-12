@@ -18,7 +18,9 @@ public class AsyncConfiguration implements AsyncConfigurer {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(5);
         executor.setMaxPoolSize(10);
-        executor.setQueueCapacity(100);
+        // Рассылки: очередь с запасом — каждое новое объявление ставит одну задачу,
+        // а при всплеске публикаций задачи не должны отбрасываться
+        executor.setQueueCapacity(2000);
         executor.setThreadNamePrefix("notification-");
         executor.initialize();
         return executor;

@@ -27,4 +27,10 @@ public class CreateVacancyRequest {
     private Double latitude;
     private Double longitude;
 
+
+    /** Голосовое: ключ из POST /api/bot/voice (null — не менять, "" — удалить) */
+    @jakarta.validation.constraints.Size(max = 500)
+    private String voiceKey;
+    @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(120)
+    private Integer voiceDuration;
 }

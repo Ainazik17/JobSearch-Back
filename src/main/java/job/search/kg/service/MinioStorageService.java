@@ -41,6 +41,29 @@ public class MinioStorageService {
     }
 
     /**
+     * Доказательство по оспоренной сделке (каталог proofs/{dealId}/)
+     */
+    public String uploadProofFile(MultipartFile file, Long dealId) throws Exception {
+        return uploadFile(file, "proofs/" + generateFileName(file.getOriginalFilename(), dealId));
+    }
+
+    /**
+     * Голосовое к объявлению (каталог voice/{userId}/)
+     */
+    public String uploadVoiceFile(MultipartFile file, Long userId, String extension) throws Exception {
+        String fileName = "voice/" + userId + "/" + UUID.randomUUID() + extension;
+        return uploadFile(file, fileName);
+    }
+
+    /**
+     * Фото компании: обложка и лента (каталог companies/{id}/)
+     */
+    public String uploadCompanyFile(MultipartFile file, Long companyId) throws Exception {
+        String fileName = "companies/" + generateFileName(file.getOriginalFilename(), companyId);
+        return uploadFile(file, fileName);
+    }
+
+    /**
      * Разрешает значение в presigned URL.
      * Если значение — полный URL (legacy) — извлекает objectKey и генерирует presigned.
      * Если значение — objectKey — сразу генерирует presigned URL.

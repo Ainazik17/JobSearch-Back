@@ -10,6 +10,7 @@ import job.search.kg.exceptions.ResourceNotFoundException;
 import job.search.kg.repo.*;
 import job.search.kg.service.MinioStorageService;
 import job.search.kg.telegram.notification.VacancyNotificationService;
+import job.search.kg.util.AfterCommit;
 import job.search.kg.util.ByteArrayMultipartFile;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class BotVacancyService {
+
+    private final VoiceNoteService voiceNoteService;
 
     private final VacancyRepository vacancyRepository;
     private final UserRepository userRepository;
@@ -116,10 +119,13 @@ public class BotVacancyService {
         vacancy.setIsActive(true);
         vacancy.setLatitude(request.getLatitude());
         vacancy.setLongitude(request.getLongitude());
+        applyVoice(vacancy, user, request);
 
         Vacancy savedVacancy = vacancyRepository.save(vacancy);
 
-        notificationService.notifyUsersAboutNewVacancy(savedVacancy);
+        // Рассылка после коммита: асинхронный поток должен увидеть вакансию в базе
+        Long newVacancyId = savedVacancy.getId();
+        AfterCommit.run(() -> notificationService.notifyUsersAboutNewVacancy(newVacancyId));
 
         return savedVacancy;
     }
@@ -172,6 +178,7 @@ public class BotVacancyService {
         if (!vacancy.getUser().getTelegramId().equals(telegramId)) {
             throw new AccessDeniedException("Доступ запрещён");
         }
+        applyVoice(vacancy, vacancy.getUser(), request);
 
         if (request.getCityId() != null && !vacancy.getCity().getId().equals(request.getCityId())) {
             City city = cityRepository.findById(request.getCityId())
@@ -397,4 +404,17 @@ public class BotVacancyService {
     }
     public record UploadResult(BotVacancyController.FileData fileData, String fileUrl, int order) {}
 
+
+    /** Голосовое из формы: null — не трогаем, "" — удаляем, ключ — ставим (только свой файл) */
+    private void applyVoice(Vacancy vacancy, User owner, CreateVacancyRequest request) {
+        String voice = voiceNoteService.claim(owner, request.getVoiceKey());
+        if (voice == null) return;
+        if (voice.isEmpty()) {
+            vacancy.setVoiceUrl(null);
+            vacancy.setVoiceDuration(null);
+        } else {
+            vacancy.setVoiceUrl(voice);
+            vacancy.setVoiceDuration(request.getVoiceDuration());
+        }
+    }
 }

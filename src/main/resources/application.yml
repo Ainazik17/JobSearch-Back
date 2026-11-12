@@ -87,6 +87,14 @@ management:
 telegram:
   bot:
     token: 7984796500:AAEAwgmhyoKVGfdFlF5thAMVhHbpmR1FMKA
+    # Ключ сервиса бота (заголовок X-Bot-Secret): его запросы проходят без initData
+    service-secret: ${BOT_SERVICE_SECRET:}
+  webapp:
+    # Адрес Mini App для кнопки «Подробнее» в уведомлениях (?open=vac_ID / res_ID / pro)
+    url: ${WEB_APP_URL:https://workkg.com}
+    auth:
+      # false — проверка подписи Telegram только пишет в лог ([auth-dry-run]); true — блокирует чужие запросы
+      enforce: ${WEBAPP_AUTH_ENFORCE:false}
 
 claude:
   api-key: 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

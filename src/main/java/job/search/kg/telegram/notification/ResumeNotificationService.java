@@ -3,6 +3,7 @@ package job.search.kg.telegram.notification;
 import job.search.kg.entity.Resume;
 import job.search.kg.entity.User;
 import job.search.kg.entity.Vacancy;
+import job.search.kg.repo.ResumeRepository;
 import job.search.kg.repo.VacancyRepository;
 import job.search.kg.service.user.BotSubscriptionService;
 import job.search.kg.telegram.TelegramService;
@@ -22,17 +23,23 @@ import java.util.Set;
 public class ResumeNotificationService {
 
     private final VacancyRepository vacancyRepository;
+    private final ResumeRepository resumeRepository;
+    private final ListingButtons listingButtons;
     private final TelegramService telegramService;
     private final BotSubscriptionService botSubscriptionService;
 
     /**
      * Отправить уведомления работодателям о новом резюме.
      * Уведомляем тех, у кого есть активная вакансия в той же подкатегории и городе.
+     * Принимает id: метод асинхронный и вызывается после коммита, резюме перечитываем здесь.
      */
     @Async
     @Transactional(readOnly = true)
-    public void notifyEmployersAboutNewResume(Resume resume) {
+    public void notifyEmployersAboutNewResume(Long resumeId) {
         try {
+            Resume resume = resumeRepository.findByIdWithUser(resumeId).orElse(null);
+            if (resume == null || !Boolean.TRUE.equals(resume.getIsActive())) return;
+
             List<Vacancy> matchingVacancies = vacancyRepository
                     .findBySubcategoryIdAndCityIdAndIsActiveTrue(
                             resume.getSubcategory().getId(),
@@ -54,11 +61,32 @@ public class ResumeNotificationService {
                     continue;
                 }
 
-                boolean hasSubscription = botSubscriptionService.hasActiveSubscription(employer.getTelegramId());
+                if (Boolean.TRUE.equals(employer.getIsBanned())) {
+                    continue;
+                }
+
+                // Отключил «Новые резюме» в настройках уведомлений
+                if (Boolean.FALSE.equals(employer.getNotifyResumes())) {
+                    continue;
+                }
+
+                boolean hasSubscription = isPro(employer.getTelegramId());
 
                 String message = buildNotificationMessage(resume, employer.getLanguage(), hasSubscription);
 
-                telegramService.sendMessage(employer.getTelegramId(), message);
+                telegramService.sendMessageWithKeyboard(
+                        employer.getTelegramId(),
+                        message,
+                        listingButtons.build(
+                                ListingButtons.Kind.RESUME,
+                                resume.getId(),
+                                hasSubscription,
+                                resume.getPhone() != null ? resume.getPhone() : resume.getUser().getPhone(),
+                                resume.getUser().getUsername(),
+                                "Здравствуйте, " + resume.getName() + "! Увидел(а) ваше резюме в Work KG",
+                                employer.getLanguage()
+                        )
+                );
                 notifiedUserIds.add(employer.getTelegramId());
 
                 log.info("Notification sent to employer {} about new resume {}",
@@ -72,15 +100,16 @@ public class ResumeNotificationService {
 
         } catch (Exception e) {
             log.error("Error notifying employers about new resume {}: {}",
-                    resume.getId(), e.getMessage(), e);
+                    resumeId, e.getMessage(), e);
         }
     }
 
     private String buildNotificationMessage(Resume resume, User.Language language, boolean hasSubscription) {
         String subcategoryName = getSubcategoryName(resume, language);
         String cityName = getCityName(resume, language);
-        String name = resume.getUser().getFirstName() + " " + resume.getUser().getLastName();
-        String phone = resume.getPhone();
+        // Имя из самой анкеты (раньше бралось из профиля Telegram и давало «Имя null»)
+        String name = resume.getName();
+        String phone = resume.getPhone() != null ? resume.getPhone() : resume.getUser().getPhone();
 
         return switch (language) {
             case KY -> buildKyrgyzMessage(subcategoryName, cityName, name, phone, hasSubscription);
@@ -174,5 +203,15 @@ public class ResumeNotificationService {
                     resume.getCity().getNameEn() : resume.getCity().getNameRu();
             default -> resume.getCity().getNameRu();
         };
+    }
+
+    /** Проверка PRO не должна обрывать рассылку остальным получателям */
+    private boolean isPro(Long telegramId) {
+        try {
+            return botSubscriptionService.hasActiveSubscription(telegramId);
+        } catch (Exception e) {
+            log.warn("PRO check failed for {}: {}", telegramId, e.getMessage());
+            return false;
+        }
     }
 }

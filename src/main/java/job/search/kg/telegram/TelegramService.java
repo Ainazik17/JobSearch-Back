@@ -5,11 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -29,12 +32,7 @@ public class TelegramService {
         request.put("text", text);
         request.put("parse_mode", "HTML");
 
-        try {
-            restTemplate.postForEntity(url, request, String.class);
-            log.info("Message sent to user {}", chatId);
-        } catch (Exception e) {
-            log.error("Failed to send message to user {}: {}", chatId, e.getMessage());
-        }
+        if (post(url, request, chatId)) log.info("Message sent to user {}", chatId);
     }
 
     public void sendMessageWithButton(Long chatId, String text, String buttonText, String buttonUrl) {
@@ -51,12 +49,102 @@ public class TelegramService {
             request.put("reply_markup", keyboard);
         }
 
-        try {
-            restTemplate.postForEntity(url, request, String.class);
-            log.info("Message with button sent to user {}", chatId);
-        } catch (Exception e) {
-            log.error("Failed to send message to user {}: {}", chatId, e.getMessage());
+        if (post(url, request, chatId)) log.info("Message with button sent to user {}", chatId);
+    }
+
+    /**
+     * Сообщение с inline-клавиатурой. rows — ряды кнопок, каждая кнопка — Map
+     * в формате Telegram InlineKeyboardButton: {text, url} или {text, web_app: {url}}.
+     */
+    public void sendMessageWithKeyboard(Long chatId, String text, List<List<Map<String, Object>>> rows) {
+        String url = TELEGRAM_API_URL + botToken + "/sendMessage";
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("chat_id", chatId);
+        request.put("text", text);
+        request.put("parse_mode", "HTML");
+        request.put("disable_web_page_preview", true);
+        if (rows != null && !rows.isEmpty()) {
+            request.put("reply_markup", Map.of("inline_keyboard", rows));
         }
+
+        if (post(url, request, chatId)) log.info("Message with keyboard sent to user {}", chatId);
+    }
+
+    // ---------- Отправка с учётом лимитов Telegram ----------
+
+    /** Telegram: ~30 сообщений/с на бота. Держим ~25/с на весь процесс (рассылки идут из нескольких потоков). */
+    private static final long MIN_INTERVAL_MS = 40;
+    private static final Pattern RETRY_AFTER = Pattern.compile("\"retry_after\"\\s*:\\s*(\\d+)");
+    private final Object rateLock = new Object();
+    private long lastSendAt = 0;
+
+    private void throttle() {
+        synchronized (rateLock) {
+            long wait = lastSendAt + MIN_INTERVAL_MS - System.currentTimeMillis();
+            if (wait > 0) {
+                try {
+                    Thread.sleep(wait);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            lastSendAt = System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * Отправить запрос. 429 Too Many Requests — ждём retry_after (до 30 с) и повторяем один раз.
+     * 403 (пользователь заблокировал бота) — не ошибка сервиса, пишем warn.
+     * @return true, если Telegram принял сообщение
+     */
+    private boolean post(String url, Map<String, Object> request, Long chatId) {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            throttle();
+            try {
+                restTemplate.postForEntity(url, request, String.class);
+                return true;
+            } catch (HttpClientErrorException.TooManyRequests e) {
+                long sec = retryAfter(e.getResponseBodyAsString());
+                log.warn("Telegram 429 for user {}, retry in {} s", chatId, sec);
+                if (attempt == 0 && sec <= 30) {
+                    try {
+                        Thread.sleep(sec * 1000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                    continue;
+                }
+                return false;
+            } catch (HttpClientErrorException.Forbidden e) {
+                log.warn("User {} blocked the bot or chat is unavailable", chatId);
+                return false;
+            } catch (Exception e) {
+                log.error("Failed to send message to user {}: {}", chatId, safe(e));
+                return false;
+            }
+        }
+        return false;
+    }
+
+    static long retryAfter(String body) {
+        Matcher m = RETRY_AFTER.matcher(body == null ? "" : body);
+        return m.find() ? Math.max(1, Long.parseLong(m.group(1))) : 3;
+    }
+
+    public static Map<String, Object> urlButton(String text, String url) {
+        return Map.of("text", text, "url", url);
+    }
+
+    public static Map<String, Object> webAppButton(String text, String url) {
+        return Map.of("text", text, "web_app", Map.of("url", url));
+    }
+
+    /** Текст ошибки без токена бота: RestTemplate кладёт в сообщение полный URL запроса */
+    private String safe(Exception e) {
+        String m = String.valueOf(e.getMessage());
+        return botToken == null || botToken.isEmpty() ? m : m.replace(botToken, "***");
     }
 
     public boolean checkSubscription(Long userId, String channelId) {
@@ -79,7 +167,7 @@ public class TelegramService {
             }
         } catch (Exception e) {
             log.error("Failed to check subscription for user {} in channel {}: {}",
-                    userId, channelId, e.getMessage());
+                    userId, channelId, safe(e));
         }
 
         return false;
@@ -96,7 +184,7 @@ public class TelegramService {
             restTemplate.postForEntity(url, request, String.class);
             log.info("Message {} deleted for user {}", messageId, chatId);
         } catch (Exception e) {
-            log.error("Failed to delete message {} for user {}: {}", messageId, chatId, e.getMessage());
+            log.error("Failed to delete message {} for user {}: {}", messageId, chatId, safe(e));
         }
     }
 }

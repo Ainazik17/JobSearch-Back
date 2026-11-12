@@ -76,6 +76,20 @@ public class Vacancy {
 
     private Integer experienceInYear;
 
+    /** Голосовое к объявлению: ссылка в хранилище и длительность, сек */
+    @Column(name = "voice_url", length = 500)
+    private String voiceUrl;
+
+    @Column(name = "voice_duration")
+    private Integer voiceDuration;
+
+    /** Итог набора: HIRED / NONE / OUTSIDE (Сделки → «Закрыть набор») */
+    @Column(name = "close_result", length = 10)
+    private String closeResult;
+
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
+
     @Column(name = "latitude")
     private Double latitude;
 
