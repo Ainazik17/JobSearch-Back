@@ -36,6 +36,8 @@ public class BotGigService {
     private final VoiceNoteService voiceNoteService;
     private final job.search.kg.repo.CompanyRepository companyRepository;
     private final job.search.kg.service.MinioStorageService storage;
+    private final UserContactService userContactService;
+    private final ContactRelayService contactRelayService;
 
     @Transactional
     public GigResponse create(Long telegramId, CreateGigRequest req) {
@@ -68,7 +70,7 @@ public class BotGigService {
         gig.setLatitude(req.getLatitude());
         gig.setLongitude(req.getLongitude());
         gig.setUrgent(Boolean.TRUE.equals(req.getUrgent()));
-        gig.setPhone(user.getPhone());
+        gig.setPhone(userContactService.phoneFor(user, req.getPhone()));
         gig.setIsActive(true);
         if (hasVoice) {
             gig.setVoiceUrl(voice);
@@ -135,6 +137,16 @@ public class BotGigService {
         return toResponse(gig, viewerTelegramId, null, null);
     }
 
+    /** Телеграм без username: бот передаёт заказчику, что с ним хотят связаться */
+    @Transactional
+    public boolean contactAuthor(Long id, Long viewerTelegramId) {
+        Gig gig = gigRepository.findByIdWithUser(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Задание не найдено"));
+        return contactRelayService.relay(viewerTelegramId, gig.getUser(), "gig_" + id,
+                "по заданию «" + gig.getTitle() + "»",
+                "Здравствуйте! Вы хотели связаться по заданию «" + gig.getTitle() + "» в Work KG");
+    }
+
     @Transactional(readOnly = true)
     public List<GigResponse> mine(Long telegramId) {
         User user = userRepository.findByTelegramId(telegramId)
@@ -188,6 +200,9 @@ public class BotGigService {
         boolean open = contactMasking.canSeeContacts(viewerTelegramId, author.getTelegramId());
         r.setPhone(open ? g.getPhone() : ContactMasking.mask(g.getPhone()));
         r.setTelegramUsername(open ? author.getUsername() : null);
+        r.setContactsOpen(open);
+        r.setHasPhone(g.getPhone() != null && !g.getPhone().isBlank());
+        r.setHasTelegram(author.getUsername() != null && !author.getUsername().isBlank());
         r.setIsActive(g.getIsActive());
         r.setMine(author.getTelegramId().equals(viewerTelegramId));
         r.setCreatedAt(g.getCreatedAt());

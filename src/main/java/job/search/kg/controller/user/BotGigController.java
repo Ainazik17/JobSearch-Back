@@ -52,6 +52,12 @@ public class BotGigController {
         return gigService.get(id, telegramId);
     }
 
+    /** Написать заказчику через бота (у него нет username в Telegram) */
+    @PostMapping("/{id}/contact")
+    public java.util.Map<String, Boolean> contact(@PathVariable Long id, @RequestParam Long telegramId) {
+        return java.util.Map.of("sent", gigService.contactAuthor(id, telegramId));
+    }
+
     @PutMapping("/{id}/status")
     public GigResponse setStatus(@PathVariable Long id, @RequestParam Long telegramId,
                                  @RequestParam Boolean isActive) {

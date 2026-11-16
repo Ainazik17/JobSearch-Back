@@ -64,6 +64,36 @@ public class MinioStorageService {
     }
 
     /**
+     * Обложка сериала / превью серии (каталог series/{seriesId}/)
+     * @return ключ объекта (не URL): ссылку выдаём presigned и только при доступе
+     */
+    public String uploadSeriesFile(MultipartFile file, Long seriesId) throws Exception {
+        String fileName = "series/" + generateFileName(file.getOriginalFilename(), seriesId);
+        uploadFile(file, fileName);
+        return fileName;
+    }
+
+    /** Presigned-ссылка на нужный срок: длинной серии часа может не хватить на перемотку */
+    public String resolveUrl(String value, int hours) {
+        if (value == null || value.isBlank()) return null;
+        if (value.startsWith("http")) {
+            String marker = "/" + bucket + "/";
+            int idx = value.indexOf(marker);
+            if (idx < 0) return value;
+            value = value.substring(idx + marker.length());
+            int q = value.indexOf('?');
+            if (q >= 0) value = value.substring(0, q);
+        }
+        try {
+            return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                    .bucket(bucket).object(value).method(Method.GET).expiry(hours, TimeUnit.HOURS).build());
+        } catch (Exception e) {
+            log.error("❌ Error generating presigned URL: {}/{}", bucket, value, e);
+            throw new RuntimeException("Could not generate file URL");
+        }
+    }
+
+    /**
      * Разрешает значение в presigned URL.
      * Если значение — полный URL (legacy) — извлекает objectKey и генерирует presigned.
      * Если значение — objectKey — сразу генерирует presigned URL.

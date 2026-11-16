@@ -1,6 +1,7 @@
 package job.search.kg.service.user;
 
 import job.search.kg.dto.request.user.CompleteTaskRequest;
+import job.search.kg.dto.response.user.TaskCheckResponse;
 import job.search.kg.dto.response.user.TaskListResponse;
 import job.search.kg.entity.PointsTransaction;
 import job.search.kg.entity.SocialTask;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@lombok.extern.slf4j.Slf4j
 @Service
 @RequiredArgsConstructor
 public class BotTaskService {
@@ -44,7 +46,14 @@ public class BotTaskService {
 
         TaskListResponse response = new TaskListResponse();
         response.setAvailableTasks(availableTasks);
-        response.setCompletedTasks(completedTasks);
+        response.setCompletedTasks(completedTasks.stream().map(ut -> {
+            TaskListResponse.CompletedTask c = new TaskListResponse.CompletedTask();
+            c.setTaskId(ut.getTask().getId());
+            c.setTitle(ut.getTask().getTitle());
+            c.setRewardGiven(ut.getRewardGiven());
+            c.setCompletedAt(ut.getCompletedAt());
+            return c;
+        }).collect(Collectors.toList()));
 
         return response;
     }
@@ -64,9 +73,8 @@ public class BotTaskService {
 
         // Проверка подписки для Telegram
         if (task.getType() == SocialTask.TaskType.TELEGRAM) {
-            boolean isSubscribed = telegramService.checkSubscription(telegramId, task.getChannelId());
-            if (!isSubscribed) {
-                throw new IllegalStateException("Вы не подписаны на канал");
+            if (telegramService.checkMembership(telegramId, channelOf(task)) != TelegramService.Membership.MEMBER) {
+                throw new IllegalArgumentException("Вы не подписаны на канал");
             }
         }
 
@@ -86,6 +94,63 @@ public class BotTaskService {
         );
 
         return userTask;
+    }
+
+    /**
+     * Кнопка «Проверить» в Mini App: никогда не бросает исключение из-за подписки —
+     * возвращает понятный статус, чтобы фронт показал верный текст вместо «Ошибка проверки».
+     */
+    @Transactional
+    public TaskCheckResponse checkTask(Long telegramId, Integer taskId) {
+        User user = userRepository.findByTelegramId(telegramId)
+                .orElseThrow(() -> new ResourceNotFoundException("Пользователь не найден"));
+        SocialTask task = taskRepository.findById(taskId)
+                .filter(t -> Boolean.TRUE.equals(t.getIsActive()))
+                .orElseThrow(() -> new ResourceNotFoundException("Задание не найдено"));
+
+        if (userTaskRepository.existsByUserAndTask(user, task)) {
+            return new TaskCheckResponse(TaskCheckResponse.Status.ALREADY_DONE, true, 0, "Задание уже выполнено");
+        }
+        if (task.getType() == SocialTask.TaskType.TELEGRAM) {
+            String channel = channelOf(task);
+            if (channel == null) {
+                log.error("Social task {} has no channel_id and link {} is not a t.me link", task.getId(), task.getLink());
+                return new TaskCheckResponse(TaskCheckResponse.Status.CHECK_FAILED, false, 0,
+                        "Не удалось проверить подписку. Попробуйте позже");
+            }
+            switch (telegramService.checkMembership(telegramId, channel)) {
+                case NOT_MEMBER:
+                    return new TaskCheckResponse(TaskCheckResponse.Status.NOT_SUBSCRIBED, false, 0,
+                            "Сначала подпишитесь на канал");
+                case ERROR:
+                    return new TaskCheckResponse(TaskCheckResponse.Status.CHECK_FAILED, false, 0,
+                            "Не удалось проверить подписку. Попробуйте через минуту");
+                default:
+                    break;
+            }
+        }
+
+        UserTask userTask = new UserTask();
+        userTask.setUser(user);
+        userTask.setTask(task);
+        userTask.setRewardGiven(task.getReward());
+        userTaskRepository.save(userTask);
+        pointsService.addPoints(telegramId, task.getReward(), PointsTransaction.TransactionType.TASK,
+                "Задание: " + task.getTitle());
+        return new TaskCheckResponse(TaskCheckResponse.Status.DONE, true, task.getReward(),
+                "Начислено " + task.getReward() + " баллов");
+    }
+
+    /** channel_id (@name или -100…), иначе берём @name из ссылки https://t.me/name */
+    static String channelOf(SocialTask task) {
+        String c = task.getChannelId();
+        if (c != null && !c.isBlank()) {
+            c = c.trim();
+            return c.startsWith("@") || c.startsWith("-") || c.matches("\\d+") ? c : "@" + c;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("t(?:elegram)?\\.me/([A-Za-z0-9_]{4,})").matcher(task.getLink() == null ? "" : task.getLink());
+        return m.find() && !m.group(1).startsWith("joinchat") ? "@" + m.group(1) : null;
     }
 
     @Transactional(readOnly = true)

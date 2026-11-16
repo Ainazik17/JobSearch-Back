@@ -30,5 +30,10 @@ public class UpsertWorkerOfferRequest {
 
     private Integer cityId = 1;
 
+    /** WhatsApp для связи. Пусто — возьмём из профиля / прошлых объявлений */
+    @Size(max = 20)
+    @Pattern(regexp = "^$|^[+\\d][\\d\\s()\\-]{8,19}$", message = "Неверный формат номера телефона")
+    private String phone;
+
     private Boolean isActive = true;
 }

@@ -33,4 +33,10 @@ public class GigResponse {
     /** Голосовое (presigned-ссылка) и длительность, сек */
     private String voiceUrl;
     private Integer voiceDuration;
+    /** Контакты раскрыты (PRO или своё объявление). false — показываем «Открыть контакты · PRO» */
+    private Boolean contactsOpen;
+    /** Есть ли у автора WhatsApp и username (без раскрытия самих контактов).
+     *  Нет username — кнопка Telegram шлёт автору сообщение через бота (POST .../{id}/contact) */
+    private Boolean hasPhone;
+    private Boolean hasTelegram;
 }

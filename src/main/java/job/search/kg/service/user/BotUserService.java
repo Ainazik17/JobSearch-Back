@@ -20,6 +20,7 @@ public class BotUserService {
     private final UserRepository userRepository;
     private final BotReferralService botReferralService;
     private final BotPointsService pointsService;
+    private final UserContactService userContactService;
 
     @Transactional
     public User registerUser(UserRegistrationRequest request) {
@@ -65,7 +66,8 @@ public class BotUserService {
         response.setTelegramId(user.getTelegramId());
         response.setUsername(user.getUsername());
         response.setFirstName(user.getFirstName());
-        response.setPhone(user.getPhone());
+        // номер мог быть указан только в вакансии/резюме — подставим его в формы подработки
+        response.setPhone(userContactService.knownPhone(user));
         response.setBalance(user.getBalance());
         response.setReferralCode(user.getReferralCode());
 
@@ -90,10 +92,13 @@ public class BotUserService {
             user.setLastName(request.getLastName());
         }
         if (request.getUsername() != null) {
-            user.setUsername(request.getUsername());
+            // Mini App присылает актуальный username из Telegram: пустая строка — username удалён
+            String u = request.getUsername().trim().replaceFirst("^@", "");
+            user.setUsername(u.isEmpty() ? null : u);
         }
         if (request.getPhone() != null) {
-            user.setPhone(request.getPhone());
+            String p = UserContactService.normalize(request.getPhone());
+            if (p != null) user.setPhone(p);
         }
         if (request.getLanguage() != null) {
             user.setLanguage(User.Language.valueOf(request.getLanguage().toUpperCase()));

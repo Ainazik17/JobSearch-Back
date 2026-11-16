@@ -18,6 +18,10 @@ public interface VacancyRepository extends JpaRepository<Vacancy, Long>, JpaSpec
 
     List<Vacancy> findByUser(User user);
 
+    /** Телефоны из вакансий пользователя, свежие первыми */
+    @Query("SELECT v.phone FROM Vacancy v WHERE v.user.id = :userId AND v.phone IS NOT NULL ORDER BY v.createdAt DESC")
+    List<String> findLatestPhone(@Param("userId") Long userId);
+
     Long countByIsActive(Boolean isActive);
 
     Optional<Vacancy> findFirstByUserIdOrderByCreatedAtAsc(Long userId);

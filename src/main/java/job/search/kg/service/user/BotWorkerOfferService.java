@@ -26,6 +26,8 @@ public class BotWorkerOfferService {
     private final UserRepository userRepository;
     private final CityRepository cityRepository;
     private final ContactMasking contactMasking;
+    private final UserContactService userContactService;
+    private final ContactRelayService contactRelayService;
 
     /** Создать или обновить «Мои услуги» (одна карточка на пользователя) */
     @Transactional
@@ -45,7 +47,7 @@ public class BotWorkerOfferService {
         offer.setDays(String.join(",", req.getDays()));
         offer.setDistrict(req.getDistrict());
         offer.setAbout(req.getAbout());
-        offer.setPhone(user.getPhone());
+        offer.setPhone(userContactService.phoneFor(user, req.getPhone()));
         offer.setIsActive(req.getIsActive() == null || req.getIsActive());
         return toResponse(offerRepository.save(offer), telegramId);
     }
@@ -84,6 +86,16 @@ public class BotWorkerOfferService {
                 .map(String::trim).filter(s -> !s.isEmpty()).toList();
     }
 
+    /** Телеграм без username: бот передаёт исполнителю, что с ним хотят связаться */
+    @Transactional
+    public boolean contactAuthor(Long id, Long viewerTelegramId) {
+        WorkerOffer o = offerRepository.findByIdWithUser(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Карточка не найдена"));
+        return contactRelayService.relay(viewerTelegramId, o.getUser(), "svc_" + id,
+                "по вашим услугам в Work KG",
+                "Здравствуйте! Вы хотели связаться по моим услугам в Work KG");
+    }
+
     private WorkerOfferResponse toResponse(WorkerOffer o, Long viewerTelegramId) {
         WorkerOfferResponse r = new WorkerOfferResponse();
         r.setId(o.getId());
@@ -100,6 +112,9 @@ public class BotWorkerOfferService {
         boolean open = contactMasking.canSeeContacts(viewerTelegramId, u.getTelegramId());
         r.setPhone(open ? o.getPhone() : ContactMasking.mask(o.getPhone()));
         r.setTelegramUsername(open ? u.getUsername() : null);
+        r.setContactsOpen(open);
+        r.setHasPhone(o.getPhone() != null && !o.getPhone().isBlank());
+        r.setHasTelegram(u.getUsername() != null && !u.getUsername().isBlank());
         r.setIsActive(o.getIsActive());
         r.setMine(u.getTelegramId().equals(viewerTelegramId));
         r.setCreatedAt(o.getCreatedAt());

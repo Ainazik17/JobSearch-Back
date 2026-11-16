@@ -1,13 +1,22 @@
 package job.search.kg.dto.response.user;
 
 import job.search.kg.entity.SocialTask;
-import job.search.kg.entity.UserTask;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 public class TaskListResponse {
     private List<SocialTask> availableTasks;
-    private List<UserTask> completedTasks;
+    /** Плоский DTO: сущность UserTask с ленивыми user/task Jackson не сериализует */
+    private List<CompletedTask> completedTasks;
+
+    @Data
+    public static class CompletedTask {
+        private Integer taskId;
+        private String title;
+        private Integer rewardGiven;
+        private LocalDateTime completedAt;
+    }
 }

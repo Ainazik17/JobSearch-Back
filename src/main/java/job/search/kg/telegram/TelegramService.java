@@ -147,6 +147,43 @@ public class TelegramService {
         return botToken == null || botToken.isEmpty() ? m : m.replace(botToken, "***");
     }
 
+    public enum Membership { MEMBER, NOT_MEMBER, ERROR }
+
+    /**
+     * Подписан ли пользователь на канал. ERROR — Telegram не дал проверить
+     * (бот не админ канала, неверный channel_id и т.п.): это не вина пользователя.
+     */
+    @SuppressWarnings("unchecked")
+    public Membership checkMembership(Long userId, String channelId) {
+        String url = TELEGRAM_API_URL + botToken + "/getChatMember";
+        Map<String, Object> request = new HashMap<>();
+        request.put("chat_id", channelId);
+        request.put("user_id", userId);
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            Map<String, Object> body = response.getBody();
+            if (body == null || !(body.get("result") instanceof Map)) return Membership.ERROR;
+            Map<String, Object> result = (Map<String, Object>) body.get("result");
+            String status = String.valueOf(result.get("status"));
+            if ("member".equals(status) || "administrator".equals(status) || "creator".equals(status)) {
+                return Membership.MEMBER;
+            }
+            // restricted — участник с ограничениями, всё ещё в канале
+            if ("restricted".equals(status) && Boolean.TRUE.equals(result.get("is_member"))) return Membership.MEMBER;
+            return Membership.NOT_MEMBER;
+        } catch (HttpClientErrorException e) {
+            String b = e.getResponseBodyAsString();
+            // «user not found» / PARTICIPANT_ID_INVALID — пользователя нет в канале
+            if (b != null && (b.contains("user not found") || b.contains("PARTICIPANT_ID_INVALID"))) {
+                return Membership.NOT_MEMBER;
+            }
+            log.error("getChatMember failed for user {} in channel {}: {} {}", userId, channelId, e.getStatusCode(), b);
+        } catch (Exception e) {
+            log.error("getChatMember failed for user {} in channel {}: {}", userId, channelId, safe(e));
+        }
+        return Membership.ERROR;
+    }
+
     public boolean checkSubscription(Long userId, String channelId) {
         String url = TELEGRAM_API_URL + botToken + "/getChatMember";
 

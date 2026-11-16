@@ -384,7 +384,7 @@ public class BotResumeService {
         response.setDescription(resume.getDescription());
         response.setIsActive(resume.getIsActive());
         response.setCreatedAt(resume.getCreatedAt());
-        response.setPhone(response.getPhone());
+        response.setPhone(resume.getPhone());
 
         // Добавляем медиа файлы
         List<MediaResponse> mediaList = resumeMediaRepository

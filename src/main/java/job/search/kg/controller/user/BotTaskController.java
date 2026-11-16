@@ -30,6 +30,13 @@ public class BotTaskController {
         return ResponseEntity.status(HttpStatus.CREATED).body(userTask);
     }
 
+    /** Mini App, кнопка «Проверить»: статус вместо исключения (см. TaskCheckResponse) */
+    @PostMapping("/{taskId}/check")
+    public job.search.kg.dto.response.user.TaskCheckResponse check(@PathVariable Integer taskId,
+                                                                   @RequestParam Long telegramId) {
+        return botTaskService.checkTask(telegramId, taskId);
+    }
+
     @GetMapping("/{telegramId}/check/{taskId}")
     public ResponseEntity<Boolean> isTaskCompleted(
             @PathVariable Long telegramId,

@@ -43,6 +43,12 @@ public class BotWorkerOfferController {
         return offerService.list(telegramId, cityId);
     }
 
+    /** Написать исполнителю через бота (у него нет username в Telegram) */
+    @PostMapping("/{id}/contact")
+    public java.util.Map<String, Boolean> contact(@PathVariable Long id, @RequestParam Long telegramId) {
+        return java.util.Map.of("sent", offerService.contactAuthor(id, telegramId));
+    }
+
     @GetMapping("/{id}")
     public WorkerOfferResponse get(@PathVariable Long id, @RequestParam Long telegramId) {
         return offerService.get(id, telegramId);

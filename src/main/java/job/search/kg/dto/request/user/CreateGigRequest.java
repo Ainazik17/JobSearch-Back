@@ -41,6 +41,11 @@ public class CreateGigRequest {
     /** По умолчанию — город 1 (Бишкек), как и в остальных формах */
     private Integer cityId = 1;
 
+    /** WhatsApp для связи. Пусто — возьмём из профиля / прошлых объявлений */
+    @Size(max = 20)
+    @Pattern(regexp = "^$|^[+\\d][\\d\\s()\\-]{8,19}$", message = "Неверный формат номера телефона")
+    private String phone;
+
     /** Голосовое: ключ из POST /api/bot/voice (null — не менять, "" — удалить) */
     @Size(max = 500)
     private String voiceKey;

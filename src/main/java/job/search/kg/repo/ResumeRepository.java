@@ -16,6 +16,10 @@ public interface ResumeRepository extends JpaRepository<Resume, Long>, JpaSpecif
 
     List<Resume> findByUser(User user);
 
+    /** Телефоны из резюме пользователя, свежие первыми */
+    @Query("SELECT r.phone FROM Resume r WHERE r.user.id = :userId AND r.phone IS NOT NULL ORDER BY r.createdAt DESC")
+    List<String> findLatestPhone(@Param("userId") Long userId);
+
     Long countByIsActive(Boolean isActive);
 
     Optional<Resume> findFirstByUserIdOrderByCreatedAtAsc(Long userId);
