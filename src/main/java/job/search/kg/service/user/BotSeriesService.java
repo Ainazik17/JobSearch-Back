@@ -100,7 +100,8 @@ public class BotSeriesService {
         String thumb = safeUrl(e.getThumbnailUrl(), 1);
         if (!locked) {
             r.setYoutubeId(ytId);
-            r.setVideoUrl(ytId != null ? "https://youtu.be/" + ytId : safeUrl(e.getVideoUrl(), VIDEO_URL_HOURS));
+            // YouTube: только id для своего плеера, готовую ссылку «youtu.be/…» не отдаём (её проще переслать)
+            r.setVideoUrl(ytId != null ? null : safeUrl(e.getVideoUrl(), VIDEO_URL_HOURS));
             if (thumb == null) thumb = YouTube.thumbnail(ytId);
         }
         // у закрытой серии превью YouTube не отдаём: по нему видно id видео
