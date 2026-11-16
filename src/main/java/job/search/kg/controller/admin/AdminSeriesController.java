@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-/** Раздел «Сериал»: серия № 1 бесплатна, остальные — с любым активным тарифом */
+/** Раздел «Сериал»: какие серии бесплатные, отмечает админ; остальные — с любым активным тарифом */
 @RestController
 @RequestMapping("/api/admin/series")
 @RequiredArgsConstructor

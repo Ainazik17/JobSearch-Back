@@ -9,7 +9,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
-/** Серия. Первая (number = 1) и отмеченные isFree открыты всем, остальные — с активным тарифом */
+/** Серия. Бесплатные (isFree — отмечает админ) открыты всем, остальные — с активным тарифом */
 @Entity
 @Table(name = "series_episodes")
 @Data
@@ -58,8 +58,8 @@ public class SeriesEpisode {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    /** Доступна без тарифа */
+    /** Доступна без тарифа: решает админ флагом «Бесплатная» */
     public boolean isOpenForAll() {
-        return Integer.valueOf(1).equals(number) || Boolean.TRUE.equals(isFree);
+        return Boolean.TRUE.equals(isFree);
     }
 }

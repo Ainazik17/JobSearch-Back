@@ -56,7 +56,8 @@ public class TelegramService {
      * Сообщение с inline-клавиатурой. rows — ряды кнопок, каждая кнопка — Map
      * в формате Telegram InlineKeyboardButton: {text, url} или {text, web_app: {url}}.
      */
-    public void sendMessageWithKeyboard(Long chatId, String text, List<List<Map<String, Object>>> rows) {
+    /** @return true, если Telegram принял сообщение */
+    public boolean sendMessageWithKeyboard(Long chatId, String text, List<List<Map<String, Object>>> rows) {
         String url = TELEGRAM_API_URL + botToken + "/sendMessage";
 
         Map<String, Object> request = new HashMap<>();
@@ -68,7 +69,9 @@ public class TelegramService {
             request.put("reply_markup", Map.of("inline_keyboard", rows));
         }
 
-        if (post(url, request, chatId)) log.info("Message with keyboard sent to user {}", chatId);
+        boolean ok = post(url, request, chatId);
+        if (ok) log.info("Message with keyboard sent to user {}", chatId);
+        return ok;
     }
 
     // ---------- Отправка с учётом лимитов Telegram ----------

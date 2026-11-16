@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 public class UpsertEpisodeRequest {
-    /** Номер серии; пусто — следующий по порядку. Серия № 1 всегда бесплатная */
+    /** Номер серии; пусто — следующий по порядку */
     @Min(1)
     private Integer number;
     @NotBlank(message = "Укажите название серии")
@@ -22,7 +22,7 @@ public class UpsertEpisodeRequest {
     private String thumbnailUrl;
     @Min(1)
     private Integer durationSec;
-    /** Сделать бесплатной дополнительно к первой */
+    /** Бесплатная — смотреть без тарифа. Не указано при создании: бесплатна только серия № 1 */
     private Boolean isFree;
     private Boolean isPublished;
 }

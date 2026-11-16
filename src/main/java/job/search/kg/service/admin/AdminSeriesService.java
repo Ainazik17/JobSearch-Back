@@ -76,6 +76,7 @@ public class AdminSeriesService {
             throw new ConflictException("Серия № " + number + " уже есть");
         }
         e.setNumber(number);
+        e.setIsFree(number == 1); // по умолчанию; админ меняет флагом isFree
         applyEpisode(e, req);
         return toEpisode(episodeRepository.save(e));
     }
@@ -166,6 +167,7 @@ public class AdminSeriesService {
         r.setHasAccess(true);
         List<SeriesEpisode> eps = episodeRepository.findBySeriesIdOrderByNumberAsc(s.getId());
         r.setEpisodesCount(eps.size());
+        r.setFreeEpisodesCount((int) eps.stream().filter(SeriesEpisode::isOpenForAll).count());
         if (withEpisodes) r.setEpisodes(eps.stream().map(this::toEpisode).toList());
         return r;
     }

@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Раздел «Сериал»: первая серия открыта всем, остальные — при любом активном тарифе.
+ * Раздел «Сериал»: бесплатные серии (их отмечает админ) открыты всем, остальные — при любом активном тарифе.
  * Видео лежат на YouTube («Доступ по ссылке»): ссылку и превью закрытой серии не отдаём вовсе.
  */
 @Slf4j
@@ -72,15 +72,16 @@ public class BotSeriesService {
         r.setId(s.getId());
         r.setTitle(s.getTitle());
         r.setDescription(s.getDescription());
+        List<SeriesEpisode> eps = episodeRepository.findBySeriesIdAndIsPublishedTrueOrderByNumberAsc(s.getId());
         String cover = safeUrl(s.getCoverUrl(), 1);
         if (cover == null) {
-            // обложки нет — превью бесплатной 1-й серии с YouTube (её id и так открыт всем)
-            cover = episodeRepository.findBySeriesIdAndIsPublishedTrueOrderByNumberAsc(s.getId()).stream()
-                    .filter(SeriesEpisode::isOpenForAll).findFirst()
+            // обложки нет — превью первой бесплатной серии с YouTube (её id и так открыт всем)
+            cover = eps.stream().filter(SeriesEpisode::isOpenForAll).findFirst()
                     .map(e -> YouTube.thumbnail(YouTube.videoId(e.getVideoUrl()))).orElse(null);
         }
         r.setCoverUrl(cover);
-        r.setEpisodesCount((int) episodeRepository.countBySeriesIdAndIsPublishedTrue(s.getId()));
+        r.setEpisodesCount(eps.size());
+        r.setFreeEpisodesCount((int) eps.stream().filter(SeriesEpisode::isOpenForAll).count());
         r.setHasAccess(access);
         return r;
     }

@@ -12,6 +12,8 @@ public class SeriesResponse {
     private String description;
     private String coverUrl;
     private int episodesCount;
+    /** Сколько серий открыто без тарифа — для текста «2 серии бесплатно» */
+    private int freeEpisodesCount;
     /** Есть активный тариф — открыты все серии */
     private boolean hasAccess;
     private Boolean isActive;
@@ -27,7 +29,7 @@ public class SeriesResponse {
         private String description;
         private String thumbnailUrl;
         private Integer durationSec;
-        /** Бесплатная серия (первая или отмеченная) */
+        /** Бесплатная серия (отмечает админ) */
         private boolean free;
         /** Закрыта для этого зрителя: нужен тариф */
         private boolean locked;
