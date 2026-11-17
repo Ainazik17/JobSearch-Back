@@ -49,6 +49,15 @@ public class ContactRelayService {
         User viewer = userRepository.findByTelegramId(viewerTelegramId)
                 .orElseThrow(() -> new ResourceNotFoundException("Пользователь не найден"));
 
+        // Без username и номера автору нечем ответить: tg://user?id не кликабелен при закрытой
+        // приватности, а кнопок не будет — не шлём «пустое» сообщение, просим указать контакт
+        String phone = userContactService.knownPhone(viewer);
+        String username = viewer.getUsername() == null ? "" : viewer.getUsername().trim().replaceFirst("^@", "");
+        if (phone == null && username.isEmpty()) {
+            throw new IllegalArgumentException("Чтобы автор мог вам ответить, укажите номер телефона в профиле "
+                    + "или задайте username в настройках Telegram");
+        }
+
         String k = viewerTelegramId + ":" + key;
         long now = System.currentTimeMillis();
         Long prev = lastSent.get(k);
@@ -56,20 +65,19 @@ public class ContactRelayService {
         lastSent.put(k, now);
         if (lastSent.size() > 10_000) lastSent.entrySet().removeIf(e -> now - e.getValue() > COOLDOWN_MS);
 
-        String name = ContactMasking.shortName(viewer.getFirstName(), viewer.getLastName());
-        String text = "✉️ <a href=\"tg://user?id=" + viewer.getTelegramId() + "\">" + escape(name) + "</a> "
-                + "хочет связаться " + escape(subject) + ".\n\n"
-                + "Нажмите на имя, чтобы открыть чат, или ответьте кнопкой ниже.";
-
         List<Map<String, Object>> row = new ArrayList<>();
-        String phone = userContactService.knownPhone(viewer);
         if (phone != null) {
             row.add(urlButton("💬 WhatsApp", "https://wa.me/" + phone.replaceAll("\\D", "")
                     + "?text=" + URLEncoder.encode(waText, StandardCharsets.UTF_8)));
         }
-        String username = viewer.getUsername() == null ? "" : viewer.getUsername().trim().replaceFirst("^@", "");
         if (!username.isEmpty()) row.add(urlButton("✈️ Telegram", "https://t.me/" + username));
-        telegramService.sendMessageWithKeyboard(owner.getTelegramId(), text, row.isEmpty() ? null : List.of(row));
+
+        String name = ContactMasking.shortName(viewer.getFirstName(), viewer.getLastName());
+        String text = "✉️ <a href=\"tg://user?id=" + viewer.getTelegramId() + "\">" + escape(name) + "</a> "
+                + "хочет связаться " + escape(subject) + ".\n\n"
+                + (phone != null ? "📞 " + escape(phone) + "\n\n" : "")
+                + "Ответьте кнопкой ниже.";
+        telegramService.sendMessageWithKeyboard(owner.getTelegramId(), text, List.of(row));
         return true;
     }
 
